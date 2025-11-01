@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -13,6 +13,11 @@ from fpdf import FPDF
 import aiofiles
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+from typing import List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
+from database import get_db
+from models import KalibrasyonRaporu, OlcumSonucu, RaporDosya
 
 # production.env dosyasını yükle
 env_file = Path(__file__).parent / "production.env"
@@ -59,8 +64,66 @@ class ReportData(BaseModel):
     gorsel_analiz: dict = None  # Yeni alan
 
 
+class OrtamKosullari(BaseModel):
+    sicaklik: str
+    nem: str
+
+class GenelBilgiler(BaseModel):
+    musteriAdi: str
+    musteriAdres: str
+    istekNo: Optional[str] = None
+
+class CihazBilgileri(BaseModel):
+    cihazAdi: str
+    marka: str
+    model: str
+    seriNo: str
+    olcmeAraligi: str
+    cozunurluk: str
+
+class KalibrasyonBilgileri(BaseModel):
+    kalibrasyonTarihi: str
+    ortamKosullari: OrtamKosullari
+    referansCihazlar: list = []
+
+class OlcumItem(BaseModel):
+    tip: str
+    referansDeger: float
+    olculenDeger: float
+    sapma: float
+    belirsizlik: float
+
+class OlcumSonuclari(BaseModel):
+    disCapOlcumleri: list[OlcumItem]
+    icCapOlcumleri: list[OlcumItem]
+    derinlikOlcumleri: list = []
+    kademeOlcumleri: list = []
+    paralellikOlcumleri: list = []
+
+class UygunlukDegerlendirmesi(BaseModel):
+    sonuc: bool
+    aciklama: str
+
+class Personel(BaseModel):
+    adSoyad: str
+    unvan: str
+
+class LaboratuvarBilgileri(BaseModel):
+    adresi: str
+    iletisim: str
+    akreditasyonBilgisi: str
+
 class KalibrasyonSertifikasiData(BaseModel):
-    kalibrasyon_sertifikasi: dict
+    sertifikaNo: str
+    genelBilgiler: GenelBilgiler
+    cihazBilgileri: CihazBilgileri
+    kalibrasyonBilgileri: KalibrasyonBilgileri
+    olcumSonuclari: OlcumSonuclari
+    uygunlukDegerlendirmesi: UygunlukDegerlendirmesi
+    kalibrasyonuYapanlar: list[Personel]
+    onaylayanlar: list[Personel]
+    laboratuvarBilgileri: LaboratuvarBilgileri
+    notlar: list = []
 
 
 class ImageAnalysisRequest(BaseModel):
@@ -615,13 +678,13 @@ async def create_pdf(report: ReportData):
         raise HTTPException(status_code=500, detail=f"PDF oluşturma hatası: {str(e)}")
 
 
-@app.post("/api/create-kalibrasyon-pdf")
-async def create_kalibrasyon_pdf(data: KalibrasyonSertifikasiData):
+async def _generate_kalibrasyon_pdf(data: KalibrasyonSertifikasiData) -> str:
     """
     Kalibrasyon sertifikası PDF'i oluşturur (ISO 17020 formatında)
     """
     try:
-        cert = data.kalibrasyon_sertifikasi
+        # Model'i dictionary'ye çevir
+        cert = data.model_dump()
         
         # PDF dosya adı
         filename = f"kalibrasyon_sertifikasi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -936,17 +999,228 @@ async def create_kalibrasyon_pdf(data: KalibrasyonSertifikasiData):
         # PDF'i kaydet
         pdf.output(str(pdf_path))
         
-        return FileResponse(
-            path=str(pdf_path),
-            media_type='application/pdf',
-            filename=filename
-        )
+        # Sadece filename döndür (database için)
+        return str(pdf_path)
     
     except Exception as e:
         import traceback
         print(f"KALİBRASYON PDF HATA: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Kalibrasyon PDF oluşturma hatası: {str(e)}")
+
+
+@app.post("/api/create-kalibrasyon-pdf")
+async def create_kalibrasyon_pdf_endpoint(data: KalibrasyonSertifikasiData):
+    """API endpoint - PDF oluştur ve FileResponse döndür"""
+    pdf_path = await _generate_kalibrasyon_pdf(data)
+    filename = os.path.basename(pdf_path)
+    
+    return FileResponse(
+        path=pdf_path,
+        media_type='application/pdf',
+        filename=filename
+    )
+
+
+# Database endpoints
+@app.post("/api/save-report")
+async def save_report(
+    rapor_data: KalibrasyonSertifikasiData,
+    db: AsyncSession = Depends(get_db)
+):
+    """Kalibrasyon raporunu veritabanına kaydet"""
+    try:
+        
+        # Yeni rapor oluştur
+        yeni_rapor = KalibrasyonRaporu(
+            sertifika_no=rapor_data.sertifikaNo,
+            musteri_adi=rapor_data.genelBilgiler.musteriAdi,
+            musteri_adres=rapor_data.genelBilgiler.musteriAdres,
+            istek_no=rapor_data.genelBilgiler.istekNo or "",
+            cihaz_tipi=rapor_data.cihazBilgileri.cihazAdi,
+            cihaz_marka=rapor_data.cihazBilgileri.marka,
+            cihaz_model=rapor_data.cihazBilgileri.model,
+            seri_no=rapor_data.cihazBilgileri.seriNo,
+            olcme_araligi=rapor_data.cihazBilgileri.olcmeAraligi,
+            cozunurluk=rapor_data.cihazBilgileri.cozunurluk,
+            kalibrasyon_tarihi=datetime.strptime(rapor_data.kalibrasyonBilgileri.kalibrasyonTarihi, "%d.%m.%Y"),
+            sicaklik=rapor_data.kalibrasyonBilgileri.ortamKosullari.sicaklik,
+            nem=rapor_data.kalibrasyonBilgileri.ortamKosullari.nem,
+            ses_kaydi_path=None,
+            gorsel_path=None,
+            uygunluk=rapor_data.uygunlukDegerlendirmesi.sonuc,
+            rapor_data=rapor_data.model_dump(),
+            created_by="sistem"  # İleride kullanıcı sisteminden alınacak
+        )
+        
+        db.add(yeni_rapor)
+        await db.flush()
+        
+        # Ölçüm sonuçlarını ekle
+        for olcum in rapor_data.olcumSonuclari.disCapOlcumleri:
+            db.add(OlcumSonucu(
+                rapor_id=yeni_rapor.id,
+                olcum_tipi="dis_cap",
+                referans_deger=olcum.referansDeger,
+                olculen_deger=olcum.olculenDeger,
+                sapma=olcum.sapma,
+                belirsizlik=olcum.belirsizlik,
+                alt_tip=olcum.tip
+            ))
+        
+        for olcum in rapor_data.olcumSonuclari.icCapOlcumleri:
+            db.add(OlcumSonucu(
+                rapor_id=yeni_rapor.id,
+                olcum_tipi="ic_cap",
+                referans_deger=olcum.referansDeger,
+                olculen_deger=olcum.olculenDeger,
+                sapma=olcum.sapma,
+                belirsizlik=olcum.belirsizlik,
+                alt_tip=olcum.tip
+            ))
+        
+        # PDF oluştur ve dosya bilgisini kaydet
+        pdf_filename = await _generate_kalibrasyon_pdf(rapor_data)
+        yeni_rapor.pdf_path = pdf_filename
+        
+        await db.commit()
+        
+        return {
+            "success": True,
+            "rapor_id": yeni_rapor.id,
+            "sertifika_no": yeni_rapor.sertifika_no,
+            "pdf_path": pdf_filename
+        }
+        
+    except Exception as e:
+        await db.rollback()
+        print(f"Rapor kaydetme hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports")
+async def get_reports(
+    skip: int = 0,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """Tüm raporları listele"""
+    try:
+        # Toplam rapor sayısı
+        result = await db.execute(select(KalibrasyonRaporu))
+        total = len(result.scalars().all())
+        
+        # Sayfalanmış raporlar
+        result = await db.execute(
+            select(KalibrasyonRaporu)
+            .order_by(desc(KalibrasyonRaporu.created_at))
+            .offset(skip)
+            .limit(limit)
+        )
+        reports = result.scalars().all()
+        
+        return {
+            "total": total,
+            "reports": [
+                {
+                    "id": r.id,
+                    "sertifika_no": r.sertifika_no,
+                    "musteri_adi": r.musteri_adi,
+                    "cihaz_tipi": r.cihaz_tipi,
+                    "kalibrasyon_tarihi": r.kalibrasyon_tarihi.strftime("%d.%m.%Y"),
+                    "durum": r.durum,
+                    "uygunluk": r.uygunluk,
+                    "created_at": r.created_at.isoformat() if r.created_at else None
+                }
+                for r in reports
+            ]
+        }
+    except Exception as e:
+        print(f"Raporları getirme hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/{rapor_id}")
+async def get_report_detail(
+    rapor_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Tek bir raporun detaylarını getir"""
+    try:
+        result = await db.execute(
+            select(KalibrasyonRaporu)
+            .where(KalibrasyonRaporu.id == rapor_id)
+        )
+        report = result.scalar_one_or_none()
+        
+        if not report:
+            raise HTTPException(status_code=404, detail="Rapor bulunamadı")
+        
+        # İlişkili ölçüm sonuçlarını getir
+        olcumler = await db.execute(
+            select(OlcumSonucu)
+            .where(OlcumSonucu.rapor_id == rapor_id)
+        )
+        
+        return {
+            "rapor": {
+                "id": report.id,
+                "sertifika_no": report.sertifika_no,
+                "rapor_data": report.rapor_data,
+                "pdf_path": report.pdf_path,
+                "created_at": report.created_at.isoformat() if report.created_at else None
+            },
+            "olcumler": [
+                {
+                    "olcum_tipi": o.olcum_tipi,
+                    "alt_tip": o.alt_tip,
+                    "referans_deger": o.referans_deger,
+                    "olculen_deger": o.olculen_deger,
+                    "sapma": o.sapma,
+                    "belirsizlik": o.belirsizlik
+                }
+                for o in olcumler.scalars().all()
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Rapor detay hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/reports/{rapor_id}")
+async def delete_report(
+    rapor_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Raporu sil"""
+    try:
+        result = await db.execute(
+            select(KalibrasyonRaporu)
+            .where(KalibrasyonRaporu.id == rapor_id)
+        )
+        report = result.scalar_one_or_none()
+        
+        if not report:
+            raise HTTPException(status_code=404, detail="Rapor bulunamadı")
+        
+        # PDF dosyasını sil
+        if report.pdf_path and os.path.exists(report.pdf_path):
+            os.remove(report.pdf_path)
+        
+        # Veritabanından sil
+        await db.delete(report)
+        await db.commit()
+        
+        return {"success": True, "message": "Rapor başarıyla silindi"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        print(f"Rapor silme hatası: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
