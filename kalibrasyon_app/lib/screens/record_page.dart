@@ -226,12 +226,12 @@ class _RecordPageState extends State<RecordPage> {
         };
       }
 
-      // 3. PDF oluştur
-      final pdfResponse = await http.post(
-        Uri.parse('http://localhost:8000/api/create-pdf'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(reportData),
-      );
+             // 3. PDF oluştur - Kalibrasyon sertifikası formatında
+             final pdfResponse = await http.post(
+               Uri.parse('http://localhost:8000/api/create-kalibrasyon-pdf'),
+               headers: {'Content-Type': 'application/json'},
+               body: json.encode(reportData),
+             );
 
       if (pdfResponse.statusCode != 200) {
         throw Exception('PDF oluşturulamadı: ${pdfResponse.statusCode}');

@@ -1,0 +1,232 @@
+{
+  "kalibrasyon_sertifikasi": {
+    "sertifika_bilgileri": {
+      "firma": "AS KALİBRASYON İÇ VE DIŞ TİCARET SAN. PAZ. LTD.ŞTİ.",
+      "adres": "Meriç Mahallesi 5747/10 Sokak No:12/2 Bornova / İZMİR",
+      "telefon": "232 247 07 44",
+      "faks": "232 431 07 44",
+      "email": "satis@askalibrasyon.com",
+      "website": "www.askalibrasyon.com",
+      "akreditasyon_no": "AB-0068-K",
+      "sertifika_no": "2205101001",
+      "tarih": "10-22"
+    },
+    "musteri_bilgileri": {
+      "sahibi": "AYVAZ ASANSÖR - HÜSEYİN AYVAZ",
+      "adres": "Deliktaş Mah. 1979 Sok. No:3/B PAMUKKALE / DENİZLİ",
+      "istek_numarasi": "İ-22-1055 / 1"
+    },
+    "cihaz_bilgileri": {
+      "makine_cihaz": "KUMPAS",
+      "imalatci": "-",
+      "tip": "VERNİYERLİ",
+      "seri_numarasi": "03476",
+      "kalibrasyon_tarihi": "05.10.2022",
+      "sayfa_sayisi": 3,
+      "olcme_araligi": "0 -150 mm",
+      "cozunurluk": "0,02 mm"
+    },
+    "kalibrasyon_detaylari": {
+      "laboratuvara_kabul_tarihi": "8.10.2022",
+      "yontem_prosedur": "Kalibrasyon; MEK.SİT.002 \"Kumpas Standart iş talimatı \" na uygun olarak yapılmıştır.",
+      "cevre_sartlari": {
+        "sicaklik": "20 ± 1°C",
+        "bagil_nem": "%45 ± 25 %rh",
+        "aciklama": "Kalibrasyon öncesinde test cihazı ve referans cihazlar aynı ortam şartlarında yeterli süre bekletilerek termal dengeye getirilmiştir."
+      }
+    },
+    "referans_cihazlar": [
+      {
+        "adi": "Granit Pleyt",
+        "imalatci": "QUINGDAO",
+        "tipi": "-",
+        "seri_no": "26087294",
+        "izlenebilirlik": "AB-0002-K"
+      },
+      {
+        "adi": "Mastar Seti(46 Parça)",
+        "imalatci": "ACCUD",
+        "tipi": "-",
+        "seri_no": "160017",
+        "izlenebilirlik": "AB-0012-K"
+      },
+      {
+        "adi": "Mastar Bloğu (100 mm)",
+        "imalatci": "BEST-t",
+        "tipi": "-",
+        "seri_no": "132970",
+        "izlenebilirlik": "AB-0012-K"
+      },
+      {
+        "adi": "Sıcaklık ve Nem Ölçer",
+        "imalatci": "LUFFT",
+        "tipi": "OPUS 20",
+        "seri_no": "072.0412.08.02.013",
+        "izlenebilirlik": "AB-0068-K"
+      },
+      {
+        "adi": "Mastar Bloğu (200mm-300 mm)",
+        "imalatci": "BEST-t",
+        "tipi": "-",
+        "seri_no": "12239-12240",
+        "izlenebilirlik": "AB-0130-K"
+      },
+      {
+        "adi": "Halka Mastar (20 mm)",
+        "imalatci": "HOREX",
+        "tipi": "-",
+        "seri_no": "17110893",
+        "izlenebilirlik": "AB-0130-K"
+      }
+    ],
+    "fonksiyonellik_kontrolu": {
+      "olcme_ceneleri": "Uygun",
+      "tespitleme_vidasi": "Uygun",
+      "gosterge": "Uygun",
+      "tambur_yatak_boslugu": "Uygun",
+      "ic_cap_olcme_ceneleri": "Uygun",
+      "derinlik_olcme_ceneleri": "Uygun"
+    },
+    "olcum_sonuclari": {
+      "dis_cap_olcumleri": [
+        {
+          "referans_deger_mm": 0.00,
+          "olculen_deger": {
+            "ic_mm": null,
+            "orta_mm": 0.00,
+            "dis_mm": null
+          },
+          "sapma": {
+            "ic_mm": null,
+            "orta_mm": 0.00,
+            "dis_mm": null
+          },
+          "olcum_belirsizligi_mm": 0.030
+        },
+        {
+          "referans_deger_mm": 25.00,
+          "olculen_deger": {
+            "ic_mm": 25.00,
+            "orta_mm": 25.00,
+            "dis_mm": 25.00
+          },
+          "sapma": {
+            "ic_mm": 0.00,
+            "orta_mm": 0.00,
+            "dis_mm": 0.00
+          },
+          "olcum_belirsizligi_mm": 0.030
+        },
+        {
+          "referans_deger_mm": 50.00,
+          "olculen_deger": {
+            "ic_mm": 50.00,
+            "orta_mm": null,
+            "dis_mm": 50.00
+          },
+          "sapma": {
+            "ic_mm": 0.00,
+            "orta_mm": null,
+            "dis_mm": 0.00
+          },
+          "olcum_belirsizligi_mm": 0.030
+        },
+        {
+          "referans_deger_mm": 75.00,
+          "olculen_deger": {
+            "ic_mm": 75.00,
+            "orta_mm": null,
+            "dis_mm": 75.00
+          },
+          "sapma": {
+            "ic_mm": 0.00,
+            "orta_mm": null,
+            "dis_mm": 0.00
+          },
+          "olcum_belirsizligi_mm": 0.030
+        },
+        {
+          "referans_deger_mm": 100.00,
+          "olculen_deger": {
+            "ic_mm": 100.00,
+            "orta_mm": null,
+            "dis_mm": 99.98
+          },
+          "sapma": {
+            "ic_mm": 0.00,
+            "orta_mm": null,
+            "dis_mm": -0.02
+          },
+          "olcum_belirsizligi_mm": 0.031
+        },
+        {
+          "referans_deger_mm": 150.00,
+          "olculen_deger": {
+            "ic_mm": 149.98,
+            "orta_mm": null,
+            "dis_mm": 149.98
+          },
+          "sapma": {
+            "ic_mm": -0.02,
+            "orta_mm": null,
+            "dis_mm": -0.02
+          },
+          "olcum_belirsizligi_mm": 0.031
+        }
+      ],
+      "ic_cap_olcumleri": [
+        {
+          "referans_deger_mm": 20.00,
+          "olculen_deger_mm": 20.02,
+          "sapma_mm": 0.02,
+          "olcum_belirsizligi_mm": 0.030
+        }
+      ],
+      "derinlik_olcumleri": [
+        {
+          "referans_deger_mm": 25.00,
+          "olculen_deger_mm": 24.96,
+          "sapma_mm": -0.04,
+          "olcum_belirsizligi_mm": 0.030
+        }
+      ],
+      "kademe_olcumleri": [
+        {
+          "referans_deger_mm": 25.00,
+          "olculen_deger_mm": 24.98,
+          "sapma_mm": -0.02,
+          "olcum_belirsizligi_mm": 0.030
+        }
+      ]
+    },
+    "uygunluk_degerlendirmesi": {
+      "karar_kurali": "VDI/VDE/DGQ 2618 bölüm 9.1 de verilen tolerans değerlerine göre uygundur",
+      "aciklamalar": [
+        "Kalibrasyon sonuçları sadece 03476 seri nolu cihaza ait olup kalibrasyon tarihinden itibaren belirtilmiş şartlarda geçerlidir.",
+        "Bu sertifikada verilen sonuçlar cihazın kalibrasyon tarihindeki durumuna ait olup cihazın uzun dönem kararlılığını içermez.",
+        "Cihazın performansı için gerekli çevre şartlarında kullanımından ve gelecek kalibrasyon tarihinden kullanıcı sorumludur."
+      ],
+      "olcum_belirsizligi_aciklama": "Beyan edilen genişletilmiş ölçüm belirsizliği standart belirsizliğin k=2 olarak alınan genişletme katsayısı ile çarpımı sonucunda bulunan değerdir ve %95 oranında güvenilirlik sağlamaktadır."
+    },
+    "onay_bilgileri": {
+      "yayim_tarihi": "05.10.2022",
+      "kalibrasyonu_yapan": {
+        "isim": "Mutlu YAVUZ",
+        "unvan": "Kalibrasyon Personeli"
+      },
+      "onaylayan": {
+        "isim": "Abdullah ÖZTÜRK",
+        "unvan": "Teknik Müdür",
+        "tarih": "05.10.2022"
+      }
+    },
+    "standartlar": {
+      "akreditasyon_standardi": "TS EN ISO/IEC 17025:2017",
+      "uluslararasi_anlasma": [
+        "Avrupa Akreditasyon Birliği (EA) - Çok Taraflı Anlaşma (MLA)",
+        "Uluslararası Laboratuvar Akreditasyon Birliği (ILAC) - Karşılıklı Tanıma Anlaşması (MRA)"
+      ]
+    }
+  }
+}
+
