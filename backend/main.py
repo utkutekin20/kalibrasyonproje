@@ -6,15 +6,11 @@ import openai
 import os
 from pathlib import Path
 import json
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.units import cm
-from reportlab.lib import colors
 from datetime import datetime
 from dotenv import load_dotenv
-from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
+from xhtml2pdf import pisa
+from io import BytesIO
 
 # production.env dosyasını yükle
 env_file = Path(__file__).parent / "production.env"
@@ -40,6 +36,13 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # Dosya kaydetme dizini
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Template dizini
+TEMPLATE_DIR = Path(__file__).parent / "templates"
+TEMPLATE_DIR.mkdir(exist_ok=True)
+
+# Jinja2 environment
+jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
 
 
 class TranscriptionRequest(BaseModel):
@@ -157,63 +160,40 @@ Sadece geçerli JSON döndür, başka açıklama ekleme.
 @app.post("/api/create-pdf")
 async def create_pdf(report: ReportData):
     """
-    Rapor verisinden PDF oluşturur
+    Rapor verisinden profesyonel PDF oluşturur (xhtml2pdf + Jinja2)
     """
     try:
+        # Rapor numarası oluştur
+        rapor_no = f"RPT-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        
+        # Template'i yükle
+        template = jinja_env.get_template('rapor_template.html')
+        
+        # HTML oluştur
+        html_content = template.render(
+            rapor_no=rapor_no,
+            muayene_turu=report.muayene_turu,
+            tarih=report.tarih,
+            teknisyen=report.teknisyen,
+            cihaz_bilgileri=report.cihaz_bilgileri,
+            olcum_sonuclari=report.olcum_sonuclari,
+            notlar=report.notlar
+        )
+        
         # PDF dosya adı
         filename = f"rapor_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         pdf_path = UPLOAD_DIR / filename
         
-        # PDF oluştur
-        doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
-        story = []
-        styles = getSampleStyleSheet()
+        # HTML'den PDF oluştur
+        with open(pdf_path, "wb") as pdf_file:
+            pisa_status = pisa.CreatePDF(
+                html_content,
+                dest=pdf_file,
+                encoding='utf-8'
+            )
         
-        # Başlık
-        title = Paragraph("<b>MUAYENE RAPORU</b>", styles['Title'])
-        story.append(title)
-        story.append(Spacer(1, 1*cm))
-        
-        # Genel Bilgiler
-        story.append(Paragraph(f"<b>Muayene Türü:</b> {report.muayene_turu}", styles['Normal']))
-        story.append(Paragraph(f"<b>Tarih:</b> {report.tarih}", styles['Normal']))
-        story.append(Paragraph(f"<b>Teknisyen:</b> {report.teknisyen}", styles['Normal']))
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Cihaz Bilgileri
-        story.append(Paragraph("<b>CİHAZ BİLGİLERİ</b>", styles['Heading2']))
-        for key, value in report.cihaz_bilgileri.items():
-            story.append(Paragraph(f"<b>{key.replace('_', ' ').title()}:</b> {value}", styles['Normal']))
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Ölçüm Sonuçları
-        story.append(Paragraph("<b>ÖLÇÜM SONUÇLARI</b>", styles['Heading2']))
-        
-        # Tablo oluştur
-        data = [["Parametre", "Değer"]]
-        for key, value in report.olcum_sonuclari.items():
-            data.append([key.replace('_', ' ').title(), str(value)])
-        
-        table = Table(data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        story.append(table)
-        story.append(Spacer(1, 0.5*cm))
-        
-        # Notlar
-        story.append(Paragraph("<b>NOTLAR</b>", styles['Heading2']))
-        story.append(Paragraph(report.notlar, styles['Normal']))
-        
-        # PDF'i kaydet
-        doc.build(story)
+        if pisa_status.err:
+            raise Exception("PDF oluşturma hatası")
         
         return FileResponse(
             path=str(pdf_path),

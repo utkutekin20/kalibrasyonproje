@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <style>
+        @font-face {
+            font-family: 'DejaVu Sans';
+            src: local('DejaVu Sans');
+        }
+        
+        @page {
+            size: A4;
+            margin: 2cm 1.5cm;
+            @top-center {
+                content: "MUAYENE RAPORU";
+                font-size: 10pt;
+                color: #666;
+            }
+            @bottom-center {
+                content: "Sayfa " counter(page) " / " counter(pages);
+                font-size: 9pt;
+                color: #666;
+            }
+        }
+        
+        body {
+            font-family: 'DejaVu Sans', 'Segoe UI', Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 24pt;
+            margin: 0;
+            font-weight: bold;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 12pt;
+            margin-top: 5px;
+        }
+        
+        .info-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 20px;
+        }
+        
+        .info-section h2 {
+            color: #2c3e50;
+            font-size: 14pt;
+            margin: 0 0 10px 0;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            width: 150px;
+            color: #2c3e50;
+        }
+        
+        .info-value {
+            flex: 1;
+            color: #555;
+        }
+        
+        .measurement-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .measurement-table th {
+            background-color: #2c3e50;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        .measurement-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .measurement-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        
+        .measurement-table tr:hover {
+            background-color: #e8f4f8;
+        }
+        
+        .notes-section {
+            background-color: #fff9e6;
+            border: 1px solid #f0e68c;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        
+        .notes-section h3 {
+            color: #d4a017;
+            margin-top: 0;
+        }
+        
+        .signature-section {
+            margin-top: 50px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .signature-box {
+            width: 45%;
+            border-top: 2px solid #2c3e50;
+            padding-top: 10px;
+            text-align: center;
+        }
+        
+        .footer-note {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 9pt;
+            color: #7f8c8d;
+            text-align: center;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 10pt;
+        }
+        
+        .status-success {
+            background-color: #27ae60;
+            color: white;
+        }
+        
+        .status-warning {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .iso-notice {
+            background-color: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 10px 15px;
+            margin: 20px 0;
+            font-size: 10pt;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MUAYENE RAPORU</h1>
+        <div class="subtitle">ISO/IEC 17020 Uyumlu Kalibrasyon Raporu</div>
+    </div>
+    
+    <div class="info-section">
+        <h2>GENEL BİLGİLER</h2>
+        <div class="info-row">
+            <div class="info-label">Rapor No:</div>
+            <div class="info-value">{{ rapor_no }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Muayene Türü:</div>
+            <div class="info-value">{{ muayene_turu }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Tarih:</div>
+            <div class="info-value">{{ tarih }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Teknisyen:</div>
+            <div class="info-value">{{ teknisyen }}</div>
+        </div>
+    </div>
+    
+    <div class="info-section">
+        <h2>CİHAZ BİLGİLERİ</h2>
+        <div class="info-row">
+            <div class="info-label">Marka:</div>
+            <div class="info-value">{{ cihaz_bilgileri.marka }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Model:</div>
+            <div class="info-value">{{ cihaz_bilgileri.model }}</div>
+        </div>
+        <div class="info-row">
+            <div class="info-label">Seri No:</div>
+            <div class="info-value">{{ cihaz_bilgileri.seri_no }}</div>
+        </div>
+    </div>
+    
+    <div class="iso-notice">
+        <strong>ℹ️ ISO/IEC 17020 Uyarısı:</strong> Bu rapor, muayene kuruluşu tarafından ISO/IEC 17020 standardına uygun olarak hazırlanmıştır.
+    </div>
+    
+    <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">ÖLÇÜM SONUÇLARI</h2>
+    
+    <table class="measurement-table">
+        <thead>
+            <tr>
+                <th>Parametre</th>
+                <th>Ölçülen Değer</th>
+                <th>Durum</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for parametre, deger in olcum_sonuclari.items() %}
+            <tr>
+                <td><strong>{{ parametre }}</strong></td>
+                <td>{{ deger }}</td>
+                <td><span class="status-badge status-success">✓ Normal</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div class="notes-section">
+        <h3>📋 NOTLAR VE GÖZLEMLER</h3>
+        <p>{{ notlar }}</p>
+    </div>
+    
+    <div class="signature-section">
+        <div class="signature-box">
+            <strong>Muayene Yapan</strong><br>
+            {{ teknisyen }}<br>
+            <small>Tarih: {{ tarih }}</small>
+        </div>
+        <div class="signature-box">
+            <strong>Onaylayan</strong><br>
+            _____________________<br>
+            <small>İmza ve Tarih</small>
+        </div>
+    </div>
+    
+    <div class="footer-note">
+        <p><strong>DİKKAT:</strong> Bu rapor izinsiz çoğaltılamaz ve değiştirilemez.</p>
+        <p>Bu belge elektronik olarak oluşturulmuştur ve dijital imza içermektedir.</p>
+        <p>Rapor No: {{ rapor_no }} | Oluşturulma Tarihi: {{ tarih }}</p>
+    </div>
+</body>
+</html>
+
