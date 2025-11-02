@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from database import get_db
 from models import KalibrasyonRaporu, OlcumSonucu, RaporDosya
+from new_models import Organizasyon, CihazTanim, Kalibrasyon, DurumEnum, CihazTipiEnum
 
 # production.env dosyasını yükle
 env_file = Path(__file__).parent / "production.env"
@@ -678,13 +679,16 @@ async def create_pdf(report: ReportData):
         raise HTTPException(status_code=500, detail=f"PDF oluşturma hatası: {str(e)}")
 
 
-async def _generate_kalibrasyon_pdf(data: KalibrasyonSertifikasiData) -> str:
+async def _generate_kalibrasyon_pdf(data) -> str:
     """
     Kalibrasyon sertifikası PDF'i oluşturur (ISO 17020 formatında)
     """
     try:
         # Model'i dictionary'ye çevir
-        cert = data.model_dump()
+        if hasattr(data, 'model_dump'):
+            cert = data.model_dump()
+        else:
+            cert = data
         
         # PDF dosya adı
         filename = f"kalibrasyon_sertifikasi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -1215,12 +1219,195 @@ async def delete_report(
         
         return {"success": True, "message": "Rapor başarıyla silindi"}
         
-    except HTTPException:
-        raise
     except Exception as e:
-        await db.rollback()
         print(f"Rapor silme hatası: {str(e)}")
+        await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== YENİ SİSTEM API'LERİ =====
+
+# Organizasyon API'leri
+@app.post("/api/organizasyonlar")
+async def create_organizasyon(data: dict, db: AsyncSession = Depends(get_db)):
+    """Yeni organizasyon oluştur"""
+    org = Organizasyon(
+        ad=data['ad'],
+        musteri_adi=data['musteri_adi'],
+        musteri_adres=data.get('musteri_adres', ''),
+        notlar=data.get('notlar', ''),
+        created_by=data.get('created_by', 'system')
+    )
+    db.add(org)
+    await db.commit()
+    await db.refresh(org)
+    
+    return {
+        "id": org.id,
+        "ad": org.ad,
+        "musteri_adi": org.musteri_adi,
+        "baslangic_tarihi": org.baslangic_tarihi.isoformat()
+    }
+
+
+@app.get("/api/organizasyonlar")
+async def list_organizasyonlar(db: AsyncSession = Depends(get_db)):
+    """Organizasyonları listele"""
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(Organizasyon)
+        .options(selectinload(Organizasyon.kalibrasyonlar))
+        .order_by(desc(Organizasyon.baslangic_tarihi))
+    )
+    organizasyonlar = result.scalars().all()
+    
+    return {
+        "organizasyonlar": [
+            {
+                "id": org.id,
+                "ad": org.ad,
+                "musteri": org.musteri_adi,
+                "baslangic": org.baslangic_tarihi.isoformat(),
+                "durum": org.durum.value,
+                "cihaz_sayisi": len(org.kalibrasyonlar),
+                "tamamlanan": len([k for k in org.kalibrasyonlar if k.durum == DurumEnum.TAMAMLANDI])
+            }
+            for org in organizasyonlar
+        ]
+    }
+
+
+# Cihaz API'leri
+@app.post("/api/cihazlar")
+async def create_cihaz(data: dict, db: AsyncSession = Depends(get_db)):
+    """Yeni cihaz tanımı oluştur"""
+    cihaz = CihazTanim(
+        cihaz_kodu=data['cihaz_kodu'],
+        cihaz_adi=data['cihaz_adi'],
+        cihaz_tipi=CihazTipiEnum(data['cihaz_tipi']),
+        marka=data.get('marka', ''),
+        model=data.get('model', ''),
+        seri_no=data.get('seri_no', ''),
+        olcme_araligi=data.get('olcme_araligi', ''),
+        cozunurluk=data.get('cozunurluk', ''),
+        kalibrasyon_noktalari=data.get('kalibrasyon_noktalari', [0, 25, 50, 75, 100]),
+        toleranslar=data.get('toleranslar', {"sapma": 0.05, "belirsizlik": 0.02})
+    )
+    db.add(cihaz)
+    await db.commit()
+    await db.refresh(cihaz)
+    
+    return {"id": cihaz.id, "cihaz_kodu": cihaz.cihaz_kodu}
+
+
+@app.get("/api/cihazlar")
+async def list_cihazlar(db: AsyncSession = Depends(get_db)):
+    """Tüm cihazları listele"""
+    result = await db.execute(
+        select(CihazTanim).order_by(CihazTanim.cihaz_kodu)
+    )
+    cihazlar = result.scalars().all()
+    
+    return {
+        "cihazlar": [
+            {
+                "id": c.id,
+                "kod": c.cihaz_kodu,
+                "ad": c.cihaz_adi,
+                "tip": c.cihaz_tipi.value,
+                "marka": c.marka,
+                "model": c.model,
+                "durum": "bekliyor"  # TODO: Son kalibrasyon durumunu kontrol et
+            }
+            for c in cihazlar
+        ]
+    }
+
+
+# Kalibrasyon API'leri
+@app.post("/api/kalibrasyonlar")
+async def create_kalibrasyon(data: dict, db: AsyncSession = Depends(get_db)):
+    """Yeni kalibrasyon kaydı oluştur"""
+    kalibrasyon = Kalibrasyon(
+        organizasyon_id=data['organizasyon_id'],
+        cihaz_id=data['cihaz_id'],
+        sicaklik=data['ortam']['sicaklik'],
+        nem=data['ortam']['nem'],
+        olcum_verileri=data['olcumler'],
+        sesli_ozet_text=data.get('sesli_ozet', ''),
+        fotograflar=data.get('fotograflar', []),
+        kalibrasyon_tarihi=datetime.now(),
+        durum=DurumEnum.TAMAMLANDI,
+        uygunluk=all(olcum.get('sonuc', True) for olcum in data['olcumler'])
+    )
+    
+    db.add(kalibrasyon)
+    await db.commit()
+    await db.refresh(kalibrasyon)
+    
+    # PDF oluştur
+    pdf_data = {
+        "sertifikaNo": f"KAL-{datetime.now().strftime('%Y%m%d')}-{kalibrasyon.id}",
+        "genelBilgiler": {
+            "musteriAdi": "Test Müşteri",  # TODO: organizasyondan al
+            "musteriAdres": "Test Adres",
+            "istekNo": f"IST-{kalibrasyon.organizasyon_id}"
+        },
+        "cihazBilgileri": {
+            "cihazAdi": data.get('cihaz_adi', 'Cihaz'),
+            "marka": data.get('marka', ''),
+            "model": data.get('model', ''),
+            "seriNo": data.get('seri_no', ''),
+            "olcmeAraligi": "0-100 mm",
+            "cozunurluk": "0.01 mm"
+        },
+        "kalibrasyonBilgileri": {
+            "kalibrasyonTarihi": datetime.now().strftime("%d.%m.%Y"),
+            "ortamKosullari": {
+                "sicaklik": f"{kalibrasyon.sicaklik} °C",
+                "nem": f"{kalibrasyon.nem} %"
+            }
+        },
+        "olcumSonuclari": {
+            "disCapOlcumleri": [
+                {
+                    "tip": "dis",
+                    "referansDeger": olcum['nominal'],
+                    "olculenDeger": olcum['olculen'],
+                    "sapma": olcum['sapma'],
+                    "belirsizlik": olcum['belirsizlik']
+                }
+                for olcum in data['olcumler']
+            ]
+        },
+        "uygunlukDegerlendirmesi": {
+            "sonuc": kalibrasyon.uygunluk,
+            "aciklama": "Kalibrasyon tamamlandı."
+        },
+        "kalibrasyonuYapanlar": [{"adSoyad": data.get('teknisyen', 'Teknisyen'), "unvan": "Teknisyen"}],
+        "onaylayanlar": [{"adSoyad": "Müdür", "unvan": "Teknik Müdür"}],
+        "laboratuvarBilgileri": {
+            "adresi": "Lab Adresi",
+            "iletisim": "lab@test.com",
+            "akreditasyonBilgisi": "TEST-001"
+        }
+    }
+    
+    pdf_path = await _generate_kalibrasyon_pdf(pdf_data)
+    
+    # PDF yolunu güncelle
+    kalibrasyon.fotograflar = kalibrasyon.fotograflar or []
+    kalibrasyon.ekler = [pdf_path]
+    await db.commit()
+    
+    return {
+        "id": kalibrasyon.id,
+        "organizasyon_id": kalibrasyon.organizasyon_id,
+        "cihaz_id": kalibrasyon.cihaz_id,
+        "pdf_path": pdf_path,
+        "uygunluk": kalibrasyon.uygunluk
+    }
 
 
 if __name__ == "__main__":
