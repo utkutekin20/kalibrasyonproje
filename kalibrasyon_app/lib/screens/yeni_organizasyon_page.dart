@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class YeniOrganizasyonPage extends StatefulWidget {
   @override
@@ -118,32 +120,52 @@ class _YeniOrganizasyonPageState extends State<YeniOrganizasyonPage> {
     );
   }
 
-  void _organizasyonOlustur() {
+  void _organizasyonOlustur() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Backend'e kaydet
-      
-      // Şimdilik sadece başarı mesajı göster
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Organizasyon oluşturuldu!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      // Organizasyon detay sayfasına git
-      Navigator.pushReplacementNamed(
-        context,
-        '/organizasyon-detay',
-        arguments: {
-          'id': DateTime.now().millisecondsSinceEpoch,
-          'ad': _adController.text,
-          'musteri': _musteriController.text,
-          'baslangic': DateTime.now(),
-          'durum': 'devam_ediyor',
-          'cihaz_sayisi': 0,
-          'tamamlanan': 0,
-        },
-      );
+      // Backend'e kaydet
+      try {
+        final response = await http.post(
+          Uri.parse('http://localhost:8000/api/organizasyonlar'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'ad': _adController.text,
+            'musteri_adi': _musteriController.text,
+            'musteri_adres': _adresController.text,
+            'notlar': _notlarController.text,
+            'created_by': 'frontend_user',
+          }),
+        );
+        
+        if (response.statusCode == 200) {
+          final result = json.decode(response.body);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Organizasyon başarıyla oluşturuldu! (ID: ${result['id']})'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          
+          // Organizasyon listesine geri dön
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Hata: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        print('Organizasyon oluşturma hatası: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bağlantı hatası: Backend çalışmıyor olabilir'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

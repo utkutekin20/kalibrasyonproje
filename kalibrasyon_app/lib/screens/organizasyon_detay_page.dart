@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class OrganizasyonDetayPage extends StatefulWidget {
   @override
@@ -11,7 +13,18 @@ class _OrganizasyonDetayPageState extends State<OrganizasyonDetayPage> {
 
   @override
   Widget build(BuildContext context) {
-    final org = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    final org = arguments != null 
+        ? arguments as Map<String, dynamic>
+        : {
+            'id': 0,
+            'ad': 'Test Organizasyon',
+            'musteri': 'Test Müşteri',
+            'baslangic': DateTime.now(),
+            'durum': 'devam_ediyor',
+            'cihaz_sayisi': 0,
+            'tamamlanan': 0,
+          };
 
     return Scaffold(
       appBar: AppBar(
@@ -293,24 +306,60 @@ class _CihazEklePageState extends State<_CihazEklePage> {
     );
   }
 
-  void _cihazKaydet() {
+  void _cihazKaydet() async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Cihaz kaydedildi!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      
-      _cihazAdiController.clear();
-      _cihazKoduController.clear();
-      _markaController.clear();
-      _modelController.clear();
-      setState(() => _secilenTip = null);
-      
-      if (mounted) {
-        final parent = context.findAncestorStateOfType<_OrganizasyonDetayPageState>();
-        parent?.setState(() => parent._selectedTab = 1);
+      try {
+        final response = await http.post(
+          Uri.parse('http://localhost:8000/api/cihazlar'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'cihaz_kodu': _cihazKoduController.text,
+            'cihaz_adi': _cihazAdiController.text,
+            'cihaz_tipi': _secilenTip!,
+            'marka': _markaController.text,
+            'model': _modelController.text,
+            'seri_no': DateTime.now().millisecondsSinceEpoch.toString(),
+            'olcme_araligi': '0-150 mm',
+            'cozunurluk': '0.01 mm',
+          }),
+        );
+        
+        if (response.statusCode == 200) {
+          final result = json.decode(response.body);
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cihaz başarıyla kaydedildi! (ID: ${result['id']})'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          _cihazAdiController.clear();
+          _cihazKoduController.clear();
+          _markaController.clear();
+          _modelController.clear();
+          setState(() => _secilenTip = null);
+          
+          if (mounted) {
+            final parent = context.findAncestorStateOfType<_OrganizasyonDetayPageState>();
+            parent?.setState(() => parent._selectedTab = 1);
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Hata: ${response.statusCode}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        print('Cihaz kaydetme hatası: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bağlantı hatası: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -326,30 +375,67 @@ class _CihazEklePageState extends State<_CihazEklePage> {
 }
 
 // Cihaz Seç Tab
-class _CihazSecPage extends StatelessWidget {
-  final List<Map<String, dynamic>> cihazlar = [
-    {
-      'id': 1,
-      'kod': 'DK-001',
-      'ad': 'Dijital Kumpas',
-      'marka': 'Mitutoyo',
-      'model': 'CD-15CPX',
-      'tip': 'Kumpas',
-      'durum': 'bekliyor',
-    },
-    {
-      'id': 2,
-      'kod': 'MK-001',
-      'ad': 'Mikrometre',
-      'marka': 'Mitutoyo',
-      'model': '103-137',
-      'tip': 'Mikrometre',
-      'durum': 'tamamlandi',
-    },
-  ];
+class _CihazSecPage extends StatefulWidget {
+  @override
+  _CihazSecPageState createState() => _CihazSecPageState();
+}
+
+class _CihazSecPageState extends State<_CihazSecPage> {
+  List<Map<String, dynamic>> cihazlar = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCihazlar();
+  }
+
+  Future<void> _loadCihazlar() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:8000/api/cihazlar'),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          cihazlar = List<Map<String, dynamic>>.from(data['cihazlar']);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Cihaz yükleme hatası: $e');
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
+    
+    if (cihazlar.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.devices, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Henüz cihaz eklenmemiş'),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                final parent = context.findAncestorStateOfType<_OrganizasyonDetayPageState>();
+                parent?.setState(() => parent._selectedTab = 0);
+              },
+              child: Text('Cihaz Ekle'),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Padding(
       padding: EdgeInsets.all(16),
       child: ListView.builder(
