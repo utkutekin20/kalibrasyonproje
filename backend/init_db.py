@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from database import Base, DATABASE_URL
 from models import KalibrasyonRaporu, OlcumSonucu, RaporDosya, Kullanici
 from new_models import Organizasyon, CihazTanim, Kalibrasyon, FormSablonu
+from standards_models import CalibrasyonStandardi, StandardSablon, SablonParametre
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

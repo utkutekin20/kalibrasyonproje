@@ -19,6 +19,7 @@ from sqlalchemy import select, desc
 from database import get_db
 from models import KalibrasyonRaporu, OlcumSonucu, RaporDosya
 from new_models import Organizasyon, CihazTanim, Kalibrasyon, DurumEnum, CihazTipiEnum
+from standards_models import CalibrasyonStandardi, StandardSablon, SablonParametre
 
 # production.env dosyasını yükle
 env_file = Path(__file__).parent / "production.env"
@@ -1407,6 +1408,91 @@ async def create_kalibrasyon(data: dict, db: AsyncSession = Depends(get_db)):
         "cihaz_id": kalibrasyon.cihaz_id,
         "pdf_path": pdf_path,
         "uygunluk": kalibrasyon.uygunluk
+    }
+
+
+# ===== STANDART API'LERİ =====
+
+@app.get("/api/standards")
+async def list_standards(db: AsyncSession = Depends(get_db)):
+    """Tüm kalibrasyon standartlarını listele"""
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(CalibrasyonStandardi)
+        .options(selectinload(CalibrasyonStandardi.sablonlar))
+        .order_by(CalibrasyonStandardi.kod)
+    )
+    standartlar = result.scalars().all()
+    
+    return {
+        "standartlar": [
+            {
+                "id": s.id,
+                "kod": s.kod,
+                "ad_tr": s.ad_tr,
+                "ad_en": s.ad_en,
+                "organizasyon": s.organizasyon,
+                "yil": s.yil,
+                "sablon_sayisi": len(s.sablonlar)
+            }
+            for s in standartlar
+        ]
+    }
+
+
+@app.get("/api/standards/{cihaz_tipi}")
+async def get_standards_by_device(cihaz_tipi: str, db: AsyncSession = Depends(get_db)):
+    """Cihaz tipine göre uygun standartları getir"""
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(StandardSablon)
+        .options(selectinload(StandardSablon.standart))
+        .where(StandardSablon.cihaz_tipi_kodu == cihaz_tipi)
+    )
+    sablonlar = result.scalars().all()
+    
+    return {
+        "standartlar": [
+            {
+                "id": s.standart.id,
+                "standart_kod": s.standart.kod,
+                "standart_ad": s.standart.ad_tr,
+                "sablon_id": s.id,
+                "cihaz_tipi_adi": s.cihaz_tipi_adi,
+                "grup": s.grup
+            }
+            for s in sablonlar
+        ]
+    }
+
+
+@app.get("/api/templates/{template_id}/parameters")
+async def get_template_parameters(template_id: int, db: AsyncSession = Depends(get_db)):
+    """Şablonun parametrelerini getir"""
+    result = await db.execute(
+        select(SablonParametre)
+        .where(SablonParametre.sablon_id == template_id)
+        .order_by(SablonParametre.id)
+    )
+    parametreler = result.scalars().all()
+    
+    return {
+        "parametreler": [
+            {
+                "id": p.id,
+                "ad": p.parametre_adi,
+                "kod": p.parametre_kodu,
+                "birim": p.birim,
+                "tolerans_tipi": p.tolerans_tipi,
+                "tolerans_degeri": p.tolerans_degeri,
+                "test_noktalari": p.test_noktalari,
+                "zorunlu": p.zorunlu,
+                "referans": p.referans
+            }
+            for p in parametreler
+        ]
     }
 
 

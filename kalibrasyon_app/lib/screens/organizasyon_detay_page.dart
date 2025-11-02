@@ -193,7 +193,7 @@ class _CihazEklePageState extends State<_CihazEklePage> {
   final _cihazKoduController = TextEditingController();
   final _markaController = TextEditingController();
   final _modelController = TextEditingController();
-  String? _secilenTip;
+  String? _secilenTip = null;  // Başlangıçta null olmalı
 
   @override
   Widget build(BuildContext context) {
@@ -238,28 +238,48 @@ class _CihazEklePageState extends State<_CihazEklePage> {
                   },
                 ),
                 SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _secilenTip,
-                  decoration: InputDecoration(
-                    labelText: 'Cihaz Tipi',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  items: [
-                    DropdownMenuItem(value: 'kumpas', child: Text('Kumpas')),
-                    DropdownMenuItem(value: 'mikrometre', child: Text('Mikrometre')),
-                    DropdownMenuItem(value: 'terazi', child: Text('Terazi')),
-                    DropdownMenuItem(value: 'basinc_transmitteri', child: Text('Basınç Transmitteri')),
-                    DropdownMenuItem(value: 'sicaklik_olcer', child: Text('Sıcaklık Ölçer')),
-                    DropdownMenuItem(value: 'multimetre', child: Text('Multimetre')),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _secilenTip,
+                        decoration: InputDecoration(
+                          labelText: 'Cihaz Tipi',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.category),
+                        ),
+                        items: [
+                          DropdownMenuItem(value: 'mig_mag_welding', child: Text('MIG/MAG Kaynak')),
+                          DropdownMenuItem(value: 'tig_welding', child: Text('TIG Kaynak')),
+                          DropdownMenuItem(value: 'plasma_arc_welding', child: Text('Plazma Kaynak')),
+                          DropdownMenuItem(value: 'resistance_spot_welding', child: Text('Nokta Kaynak')),
+                          DropdownMenuItem(value: 'gas_welding', child: Text('Gaz Kaynak')),
+                          DropdownMenuItem(value: 'laser_beam_welding', child: Text('Lazer Kaynak')),
+                          DropdownMenuItem(value: 'electron_beam_welding', child: Text('Elektron Işın Kaynak')),
+                          DropdownMenuItem(value: 'stud_welding', child: Text('Sapla Kaynak')),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _secilenTip = value);
+                        },
+                        validator: (value) {
+                          if (value == null) return 'Bu alan zorunludur';
+                          return null;
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Tooltip(
+                      message: 'Özel Cihaz Tipi Ekle',
+                      child: IconButton(
+                        onPressed: _ozelCihazEkle,
+                        icon: Icon(Icons.add_circle, size: 32),
+                        color: Colors.green,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.green.shade50,
+                        ),
+                      ),
+                    ),
                   ],
-                  onChanged: (value) {
-                    setState(() => _secilenTip = value);
-                  },
-                  validator: (value) {
-                    if (value == null) return 'Bu alan zorunludur';
-                    return null;
-                  },
                 ),
                 SizedBox(height: 16),
                 Row(
@@ -303,6 +323,50 @@ class _CihazEklePageState extends State<_CihazEklePage> {
           ),
         ),
       ),
+    );
+  }
+
+  void _ozelCihazEkle() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final ozelTipController = TextEditingController();
+        
+        return AlertDialog(
+          title: Text('Özel Cihaz Tipi Ekle'),
+          content: TextField(
+            controller: ozelTipController,
+            decoration: InputDecoration(
+              labelText: 'Cihaz Tipi Adı',
+              hintText: 'Örn: Ultrasonik Kaynak',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('İptal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (ozelTipController.text.isNotEmpty) {
+                  setState(() {
+                    _secilenTip = ozelTipController.text.toLowerCase().replaceAll(' ', '_');
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Özel cihaz tipi eklendi: ${ozelTipController.text}'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+              child: Text('Ekle'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -456,13 +520,18 @@ class _CihazSecPageState extends State<_CihazSecPage> {
               subtitle: Text('${cihaz['marka']} ${cihaz['model']}'),
               trailing: ElevatedButton(
                 onPressed: () {
+                  // Önce standart seçimi yap
                   Navigator.pushNamed(
                     context,
-                    '/kalibrasyon-form',
+                    '/standart-secim',
                     arguments: cihaz,
                   );
                 },
                 child: Text('Kalibrasyon Başlat'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ),
           );

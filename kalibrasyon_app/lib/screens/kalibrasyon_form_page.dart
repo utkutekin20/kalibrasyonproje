@@ -20,29 +20,62 @@ class _KalibrasyonFormPageState extends State<KalibrasyonFormPage> {
   String? _audioPath;
   List<String> _fotograflar = [];
   Map<String, dynamic> cihaz = {};
+  List<Map<String, dynamic>> _parametreler = [];
   
-  // Kumpas için örnek ölçüm noktaları
-  final List<Map<String, dynamic>> _olcumNoktalari = [
-    {'nominal': 0, 'olculen': null, 'sapma': 0, 'belirsizlik': 0.01, 'sonuc': null},
-    {'nominal': 25, 'olculen': null, 'sapma': 0, 'belirsizlik': 0.01, 'sonuc': null},
-    {'nominal': 50, 'olculen': null, 'sapma': 0, 'belirsizlik': 0.01, 'sonuc': null},
-    {'nominal': 75, 'olculen': null, 'sapma': 0, 'belirsizlik': 0.01, 'sonuc': null},
-    {'nominal': 100, 'olculen': null, 'sapma': 0, 'belirsizlik': 0.01, 'sonuc': null},
-  ];
+  // Dinamik ölçüm verileri - her parametre için ayrı liste
+  Map<String, List<Map<String, dynamic>>> _olcumVerileri = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // Parametreleri initState'de yükle
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initParametreler();
+    });
+  }
+
+  void _initParametreler() {
+    final arguments = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    
+    if (arguments != null) {
+      cihaz = arguments;
+      _parametreler = arguments['parametreler'] != null 
+          ? List<Map<String, dynamic>>.from(arguments['parametreler'])
+          : [];
+      
+      // Her parametre için ölçüm verilerini oluştur
+      for (var param in _parametreler) {
+        final testNoktalari = List<dynamic>.from(param['test_noktalari']);
+        _olcumVerileri[param['kod']] = testNoktalari.map((nokta) => {
+          'nominal': nokta,
+          'olculen': null,
+          'sapma': 0.0,
+          'belirsizlik': param['tolerans_degeri'],
+          'sonuc': null,
+        }).toList();
+      }
+      
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final arguments = ModalRoute.of(context)?.settings.arguments;
-    cihaz = arguments != null 
-        ? arguments as Map<String, dynamic>
-        : {
-            'id': 0,
-            'kod': 'TEST-001',
-            'ad': 'Test Cihazı',
-            'tip': 'kumpas',
-            'marka': 'Test Marka',
-            'model': 'Test Model',
-          };
+    if (cihaz.isEmpty && arguments != null) {
+      cihaz = arguments as Map<String, dynamic>;
+    }
+    
+    if (cihaz.isEmpty) {
+      cihaz = {
+        'id': 0,
+        'kod': 'TEST-001',
+        'ad': 'Test Cihazı',
+        'tip': 'kumpas',
+        'marka': 'Test Marka',
+        'model': 'Test Model',
+      };
+    }
     
     return Scaffold(
       appBar: AppBar(
@@ -178,7 +211,7 @@ class _KalibrasyonFormPageState extends State<KalibrasyonFormPage> {
                   DataColumn(label: Text('Belirsizlik\n(mm)')),
                   DataColumn(label: Text('Sonuç')),
                 ],
-                rows: _olcumNoktalari.map((nokta) {
+                rows: (_olcumVerileri.values.first ?? []).map((nokta) {
                   return DataRow(
                     cells: [
                       DataCell(Text(nokta['nominal'].toString())),
@@ -423,7 +456,7 @@ class _KalibrasyonFormPageState extends State<KalibrasyonFormPage> {
           'sicaklik': double.tryParse(_sicaklikController.text) ?? 23.0,
           'nem': double.tryParse(_nemController.text) ?? 50.0,
         },
-        'olcumler': _olcumNoktalari.where((nokta) => nokta['olculen'] != null).toList(),
+        'olcumler': _olcumVerileri.values.expand((list) => list).where((nokta) => nokta['olculen'] != null).toList(),
         'sesli_ozet': _audioPath,
         'fotograflar': _fotograflar,
         'tarih': DateTime.now().toIso8601String(),
@@ -481,7 +514,7 @@ class _KalibrasyonFormPageState extends State<KalibrasyonFormPage> {
               'sicaklik': double.tryParse(_sicaklikController.text) ?? 23.0,
               'nem': double.tryParse(_nemController.text) ?? 50.0,
             },
-            'olcumler': _olcumNoktalari.where((nokta) => nokta['olculen'] != null).toList(),
+            'olcumler': _olcumVerileri.values.expand((list) => list).where((nokta) => nokta['olculen'] != null).toList(),
             'sesli_ozet': _audioPath ?? '',
             'fotograflar': _fotograflar,
             'teknisyen': 'Test Teknisyen',
